@@ -1,5 +1,9 @@
 name: release.publish
 
+# +----------------------------------------------------------------------------+
+# | WARNING: DO NOT MODIFY THIS TRIGGER BLOCK
+# | This workflow should only be triggered manually via workflow_dispatch
+# | from the 'main' branch.
 on:
   workflow_dispatch:
     inputs:
@@ -7,6 +11,12 @@ on:
         description: 'The SDK version to release (e.g., 12.11.0)'
         required: true
         type: string
+# +----------------------------------------------------------------------------+
+
+# Enforce least privilege for the default GITHUB_TOKEN.
+# Write permissions are handled exclusively by the PAT in the publish step.
+permissions:
+  contents: read
 
 jobs:
   prepare_release:
@@ -22,9 +32,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0 # Required to resolve the target SHA for historical tags
+          persist-credentials: false
 
       - name: Verify and Prepare
         id: prep
@@ -117,13 +128,20 @@ jobs:
     name: Publish Release
     needs: prepare_release
     runs-on: ubuntu-latest
+
+    # +------------------------------------------------------------------------+
+    # | WARNING: DO NOT MODIFY THE ENVIRONMENT BLOCK
+    # | The 'production' environment acts as the core security boundary. It
+    # | enforces branch protections (main only) and gates access to the PAT.
     environment: 'production'
+    # +------------------------------------------------------------------------+
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0 # Required so the CLI can resolve the target SHA
+          persist-credentials: false
 
       - name: Create and Publish Release
         env:
