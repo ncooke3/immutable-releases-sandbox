@@ -101,7 +101,7 @@ jobs:
           
           # Mimics the "Release title" text box
           echo "#### Release title" >> $GITHUB_STEP_SUMMARY
-          echo "**$SDK_NAME $VERSION**" >> $GITHUB_STEP_SUMMARY
+          echo "`**$SDK_NAME $VERSION**`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Describe this release" markdown box
