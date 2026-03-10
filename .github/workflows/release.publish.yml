@@ -12,8 +12,15 @@ jobs:
   prepare_release:
     name: Prepare Release
     runs-on: ubuntu-latest
+    
+    # Map the step outputs to the job outputs so the next job can read them
     outputs:
       target_sha: ${{ steps.prep.outputs.target_sha }}
+      sdk_name: ${{ steps.prep.outputs.sdk_name }}
+      asset_path: ${{ steps.prep.outputs.asset_path }}
+      asset_label: ${{ steps.prep.outputs.asset_label }}
+      notes_url: ${{ steps.prep.outputs.notes_url }}
+      setup_url: ${{ steps.prep.outputs.setup_url }}
 
     steps:
       - name: Checkout
@@ -27,6 +34,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           CP_TAG: CocoaPods-${{ inputs.version }}
+          
+          # --- Single Source of Truth for Workflow Variables ---
+          SDK_NAME: "Firebase Apple"
+          ASSET_PATH: "./artifact.txt" # Mock path
+          ASSET_LABEL: "Firebase.zip"
+          NOTES_URL: "https://firebase.google.com/support/release-notes/ios"
+          SETUP_URL: "https://firebase.google.com/docs/ios/setup"
         run: |
           set -e
 
@@ -37,7 +51,6 @@ jobs:
           fi
 
           # --- Step 2: Check for existing release ---
-          # We use the default token here just to READ the repository state
           RELEASE_INFO=$(gh release view "$VERSION" --json isDraft,url 2>/dev/null || true)
           if [ -n "$RELEASE_INFO" ]; then
             IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
@@ -49,7 +62,6 @@ jobs:
               echo "View the existing release here: $EXISTING_URL"
               exit 1
             else
-              # Because we don't use the PAT in this job, we safely fail and ask the user to clean it up manually
               echo "Error: Found an existing draft for '$VERSION'."
               echo "Since this workflow publishes directly, please manually delete the draft here: $EXISTING_URL"
               exit 1
@@ -59,25 +71,53 @@ jobs:
           # --- Step 3: Resolve the Tag to a SHA ---
           TARGET_SHA=$(git rev-parse "$CP_TAG")
           echo "Target SHA for release: $TARGET_SHA"
+          
+          # --- Step 4: Export Outputs for the downstream steps and jobs ---
           echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
+          echo "sdk_name=$SDK_NAME" >> $GITHUB_OUTPUT
+          echo "asset_path=$ASSET_PATH" >> $GITHUB_OUTPUT
+          echo "asset_label=$ASSET_LABEL" >> $GITHUB_OUTPUT
+          echo "notes_url=$NOTES_URL" >> $GITHUB_OUTPUT
+          echo "setup_url=$SETUP_URL" >> $GITHUB_OUTPUT
 
       - name: Post Summary
         env:
           VERSION: ${{ inputs.version }}
+          CP_TAG: CocoaPods-${{ inputs.version }}
           TARGET_SHA: ${{ steps.prep.outputs.target_sha }}
+          SDK_NAME: ${{ steps.prep.outputs.sdk_name }}
+          ASSET_PATH: ${{ steps.prep.outputs.asset_path }}
+          ASSET_LABEL: ${{ steps.prep.outputs.asset_label }}
+          NOTES_URL: ${{ steps.prep.outputs.notes_url }}
+          SETUP_URL: ${{ steps.prep.outputs.setup_url }}
         run: |
           echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
           echo "Please review the details below before approving the 'Publish' job." >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          
+          # Mimics the "Choose a tag" and "Target" dropdowns
+          echo "**Tag:** \`$VERSION\` &emsp;&emsp; **Target:** [\`$CP_TAG\`](https://github.com/${{ github.repository }}/tree/$CP_TAG) / [\`${TARGET_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/$TARGET_SHA)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "* **Proposed Version:** \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "* **Target Tag:** [\`CocoaPods-${{ inputs.version }}\`](https://github.com/${{ github.repository }}/tree/CocoaPods-${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
-          echo "* **Target Commit:** [\`${TARGET_SHA}\`](https://github.com/${{ github.repository }}/commit/${TARGET_SHA})" >> $GITHUB_STEP_SUMMARY
+          
+          # Mimics the "Release title" text box
+          echo "#### Release title" >> $GITHUB_STEP_SUMMARY
+          echo "\`$SDK_NAME $VERSION\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### Release Notes Header Preview" >> $GITHUB_STEP_SUMMARY
-          echo "> The Firebase Apple SDK ($VERSION) is now available. For more details, see the [Firebase Apple SDK release notes.](https://firebase.google.com/support/release-notes/ios#$VERSION)" >> $GITHUB_STEP_SUMMARY
+          
+          # Mimics the "Describe this release" markdown box
+          echo "#### Release notes" >> $GITHUB_STEP_SUMMARY
+          echo "> The $SDK_NAME SDK ($VERSION) is now available. For more details, see the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "> " >> $GITHUB_STEP_SUMMARY
-          echo "> To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)" >> $GITHUB_STEP_SUMMARY
-          echo "*(**Note:** GitHub will automatically append the changelog, merged pull requests, and contributor list below this header when the release is published.)*" >> $GITHUB_STEP_SUMMARY
+          echo "> To install this SDK, see [Add Firebase to your project.]($SETUP_URL)" >> $GITHUB_STEP_SUMMARY
+          
+          # Enforces a hard visual newline before the note
+          echo "<br>" >> $GITHUB_STEP_SUMMARY
+          echo "*( 💡 **Note:** GitHub will automatically append the changelog, merged pull requests, and contributor list below this header when the release is published. )*" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Mimics the "Attached binaries" section
+          echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "* 📦 **$ASSET_LABEL** *(Source: \`$ASSET_PATH\`)*" >> $GITHUB_STEP_SUMMARY
 
   publish_release:
     name: Publish Release
@@ -93,28 +133,38 @@ jobs:
 
       - name: Create and Publish Release
         env:
+          # --- Secrets & Core Inputs ---
           GH_TOKEN: ${{ secrets.ENV_SECRET }} 
           VERSION: ${{ inputs.version }}
+          
+          # --- Consuming the Outputs from prepare_release ---
           TARGET_SHA: ${{ needs.prepare_release.outputs.target_sha }}
-          ZIP_PATH: "./artifact.txt" # Mock path
-          ASSET_LABEL: "Firebase.zip"
+          SDK_NAME: ${{ needs.prepare_release.outputs.sdk_name }}
+          ASSET_PATH: ${{ needs.prepare_release.outputs.asset_path }}
+          ASSET_LABEL: ${{ needs.prepare_release.outputs.asset_label }}
+          NOTES_URL: ${{ needs.prepare_release.outputs.notes_url }}
+          SETUP_URL: ${{ needs.prepare_release.outputs.setup_url }}
+          
         run: |
           set -e
 
-          # --- Generate Release Notes Header --- 
-          cat <<EOF > header.md
-          The Firebase Apple SDK ($VERSION) is now available. For more details, see 
-          the [Firebase Apple SDK release notes.](https://firebase.google.com/support/release-notes/ios#$VERSION)
+          # --- 1. Construct Command Arguments ---
+          RELEASE_TITLE="$SDK_NAME $VERSION"
+          ASSET_ARG="$ASSET_PATH#$ASSET_LABEL"
+          NOTES_FILE="header.md"
 
-          To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)
+          # --- 2. Generate Release Notes Header --- 
+          cat <<EOF > "$NOTES_FILE"
+          The $SDK_NAME SDK ($VERSION) is now available. For more details, see 
+          the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)
+
+          To install this SDK, see [Add Firebase to your project.]($SETUP_URL)
           EOF
 
-          # --- Create & Publish Immutable Release ---
-          # We dropped the --draft flag, so this publishes immediately.
-          # The PAT bypasses the 403 error for --generate-notes on historical commits.
-          gh release create "$VERSION" "$ZIP_PATH#$ASSET_LABEL" \
+          # --- 3. Create & Publish Immutable Release ---
+          gh release create "$VERSION" "$ASSET_ARG" \
             --target "$TARGET_SHA" \
-            --title "Firebase Apple $VERSION" \
-            --notes-file header.md \
+            --title "$RELEASE_TITLE" \
+            --notes-file "$NOTES_FILE" \
             --generate-notes \
             --latest
