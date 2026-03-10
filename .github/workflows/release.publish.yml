@@ -96,12 +96,12 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Choose a tag" and "Target" dropdowns
-          echo "**Tag:** \`$VERSION\` &emsp;&emsp; **Target:** [\`$CP_TAG\`](https://github.com/${{ github.repository }}/tree/$CP_TAG) / [\`${TARGET_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/$TARGET_SHA)" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`$VERSION\` &emsp;&emsp; **Target:** [\`$CP_TAG\`]([https://github.com/$](https://github.com/$){{ github.repository }}/tree/$CP_TAG) / [\`${TARGET_SHA:0:7}\`]([https://github.com/$](https://github.com/$){{ github.repository }}/commit/$TARGET_SHA)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Release title" text box
           echo "#### Release title" >> $GITHUB_STEP_SUMMARY
-          echo "\`$SDK_NAME $VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "**$SDK_NAME $VERSION**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Describe this release" markdown box
@@ -109,10 +109,8 @@ jobs:
           echo "> The $SDK_NAME SDK ($VERSION) is now available. For more details, see the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "> " >> $GITHUB_STEP_SUMMARY
           echo "> To install this SDK, see [Add Firebase to your project.]($SETUP_URL)" >> $GITHUB_STEP_SUMMARY
-          
-          # Enforces a hard visual newline before the note
-          echo "<br>" >> $GITHUB_STEP_SUMMARY
-          echo "*( 💡 **Note:** GitHub will automatically append the changelog, merged pull requests, and contributor list below this header when the release is published. )*" >> $GITHUB_STEP_SUMMARY
+          echo "> " >> $GITHUB_STEP_SUMMARY
+          echo "> *< GitHub will automatically append the changelog, merged pull requests, and contributor list here >*" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Attached binaries" section
