@@ -9,8 +9,16 @@ on:
         type: string
 
 jobs:
+  log_inputs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Print Inputs
+      run: |
+        echo "Requesting to create ${{ inputs.version }} tag at CocoaPods-${{ inputs.version }} reference and publish corresponding release."
+
   create-release:
     name: Create and Freeze Release
+    needs: log_inputs
     runs-on: ubuntu-latest
     # This maps to a "protected" environment in GitHub Settings > Environments
     # Use this to require manual approval from the release team.
