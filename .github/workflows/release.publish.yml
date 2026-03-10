@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: write # Required to create/edit releases
     outputs:
+      target_sha: ${{ steps.create_draft.outputs.target_sha }}
       release_url: ${{ steps.create_draft.outputs.release_url }}
 
     steps:
@@ -63,6 +64,7 @@ jobs:
             --generate-notes \
             --latest)
 
+          echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
           echo "release_url=$URL" >> $GITHUB_OUTPUT
 
   prepare_approval:
