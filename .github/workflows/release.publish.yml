@@ -1,4 +1,4 @@
-name: "Publish Immutable Release"
+name: release.publish
 
 on:
   workflow_dispatch:
