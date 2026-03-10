@@ -9,14 +9,11 @@ on:
         type: string
 
 jobs:
-  draft_release:
-    name: Draft Release
+  prepare_release:
+    name: Prepare Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Required to create/edit releases
     outputs:
-      target_sha: ${{ steps.create_draft.outputs.target_sha }}
-      release_url: ${{ steps.create_draft.outputs.release_url }}
+      target_sha: ${{ steps.prep.outputs.target_sha }}
 
     steps:
       - name: Checkout
@@ -24,24 +21,23 @@ jobs:
         with:
           fetch-depth: 0 # Ensure we have all tags for verification
 
-      - name: Create draft
-        id: create_draft
+      - name: Verify and Prepare
+        id: prep
         env:
-          GH_TOKEN: ${{ secrets.ENV_SECRET }}
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           CP_TAG: CocoaPods-${{ inputs.version }}
-          ZIP_PATH: "./artifact.txt" # Mock path; in a real flow, this would come from a previous build artifact
-          ASSET_LABEL: "Firebase.zip"
         run: |
           set -e
 
-          # --- Step 0: Pre-flight Tag Check --- 
+          # --- Step 1: Pre-flight Tag Check --- 
           if ! git rev-parse "$CP_TAG" >/dev/null 2>&1; then
             echo "Error: Tag $CP_TAG not found. Ensure the tag is pushed before releasing."
             exit 1
           fi
 
-          # --- Step 1: Check for existing release ---
+          # --- Step 2: Check for existing release ---
+          # We use the default token here just to READ the repository state
           RELEASE_INFO=$(gh release view "$VERSION" --json isDraft,url 2>/dev/null || true)
           if [ -n "$RELEASE_INFO" ]; then
             IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
@@ -53,75 +49,72 @@ jobs:
               echo "View the existing release here: $EXISTING_URL"
               exit 1
             else
-              echo "Warninig: Found an existing draft for '$VERSION' (likely from a previous failed run)."
-              echo "Cleaning up the stale draft to generate a fresh one..."
-              gh release delete "$VERSION" --yes
+              # Because we don't use the PAT in this job, we safely fail and ask the user to clean it up manually
+              echo "Error: Found an existing draft for '$VERSION'."
+              echo "Since this workflow publishes directly, please manually delete the draft here: $EXISTING_URL"
+              exit 1
             fi
           fi
 
-          # --- Step 2: Resolve the Tag to a SHA ---
-          # This ensures the API gets a direct pointer it can't misunderstand
+          # --- Step 3: Resolve the Tag to a SHA ---
           TARGET_SHA=$(git rev-parse "$CP_TAG")
           echo "Target SHA for release: $TARGET_SHA"
+          echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
 
-          # --- Step 3: Generate Release Notes Header --- 
+      - name: Post Summary
+        env:
+          VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ steps.prep.outputs.target_sha }}
+        run: |
+          echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
+          echo "Please review the details below before approving the 'Publish' job." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "* **Proposed Version:** \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Target Tag:** [\`CocoaPods-${{ inputs.version }}\`](https://github.com/${{ github.repository }}/tree/CocoaPods-${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "* **Target Commit:** [\`${TARGET_SHA}\`](https://github.com/${{ github.repository }}/commit/${TARGET_SHA})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Release Notes Header Preview" >> $GITHUB_STEP_SUMMARY
+          echo "> The Firebase Apple SDK ($VERSION) is now available. For more details, see the [Firebase Apple SDK release notes.](https://firebase.google.com/support/release-notes/ios#$VERSION)" >> $GITHUB_STEP_SUMMARY
+          echo "> " >> $GITHUB_STEP_SUMMARY
+          echo "> To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)" >> $GITHUB_STEP_SUMMARY
+          echo "*(**Note:** GitHub will automatically append the changelog, merged pull requests, and contributor list below this header when the release is published.)*" >> $GITHUB_STEP_SUMMARY
+
+  publish_release:
+    name: Publish Release
+    needs: prepare_release
+    runs-on: ubuntu-latest
+    environment: 'production'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required so the CLI can resolve the target SHA
+
+      - name: Create and Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.ENV_SECRET }} 
+          VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ needs.prepare_release.outputs.target_sha }}
+          ZIP_PATH: "./artifact.txt" # Mock path
+          ASSET_LABEL: "Firebase.zip"
+        run: |
+          set -e
+
+          # --- Generate Release Notes Header --- 
           cat <<EOF > header.md
           The Firebase Apple SDK ($VERSION) is now available. For more details, see 
           the [Firebase Apple SDK release notes.](https://firebase.google.com/support/release-notes/ios#$VERSION)
 
           To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)
           EOF
-          
-          echo "Start"
-          echo "$TARGET_SHA"
-          echo "$CP_TAG"
-          cat header.md
-          echo "end"
 
-          # --- Step 4: Create the Immutable Draft ---
-          # We use --draft so the team can do a final check before the "Freeze"
-          URL=$(gh release create "$VERSION" "$ZIP_PATH#$ASSET_LABEL" \
-            --draft \
+          # --- Create & Publish Immutable Release ---
+          # We dropped the --draft flag, so this publishes immediately.
+          # The PAT bypasses the 403 error for --generate-notes on historical commits.
+          gh release create "$VERSION" "$ZIP_PATH#$ASSET_LABEL" \
             --target "$TARGET_SHA" \
             --title "Firebase Apple $VERSION" \
             --notes-file header.md \
             --generate-notes \
-            --latest)
-
-          echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
-          echo "release_url=$URL" >> $GITHUB_OUTPUT
-
-  prepare_approval:
-    name: Prepare Approval Info
-    needs: draft_release
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Post Summary
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
-          echo "Please verify the draft before approving the 'Publish' job below." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "* **Proposed Version:** \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "* **Target Tag:** [\`CocoaPods-${{ inputs.version }}\`](https://github.com/${{ github.repository }}/tree/CocoaPods-${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
-          echo "* **Target Commit:** [\`${{ needs.draft_release.outputs.target_sha }}\`](https://github.com/${{ github.repository }}/commit/${{ needs.draft_release.outputs.target_sha }})" >> $GITHUB_STEP_SUMMARY
-          echo "* **Draft Release URL:** ${{ needs.draft_release.outputs.release_url }}" >> $GITHUB_STEP_SUMMARY
-
-  publish_release:
-    name: Publish Release
-    needs: prepare_approval
-    runs-on: ubuntu-latest
-    environment: 'production'
-
-    permissions:
-      contents: write # Required to create/edit releases
-
-    steps:
-      - name: Create tag and publish release.
-        env:
-          GH_TOKEN: ${{ secrets.ENV_SECRET }}
-          VERSION: ${{ inputs.version }}
-        run: gh release edit "$VERSION" --draft=false --repo ${{ github.repository }}
-          
+            --latest
