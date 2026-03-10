@@ -61,7 +61,6 @@ jobs:
             --title "Firebase Apple $VERSION" \
             --notes-file header.md \
             --generate-notes \
-            --fail-on-no-commits \
             --latest)
 
           echo "release_url=$URL" >> $GITHUB_OUTPUT
