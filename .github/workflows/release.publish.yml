@@ -71,6 +71,12 @@ jobs:
 
           To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)
           EOF
+          
+          echo "Start"
+          echo "$TARGET_SHA"
+          echo "$CP_TAG"
+          cat header.md
+          echo "end"
 
           # --- Step 4: Create the Immutable Draft ---
           # We use --draft so the team can do a final check before the "Freeze"
