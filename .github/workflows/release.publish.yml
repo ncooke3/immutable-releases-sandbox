@@ -13,20 +13,18 @@ jobs:
     name: Prepare Release
     runs-on: ubuntu-latest
     
-    # Map the step outputs to the job outputs so the next job can read them
     outputs:
       target_sha: ${{ steps.prep.outputs.target_sha }}
       sdk_name: ${{ steps.prep.outputs.sdk_name }}
       asset_path: ${{ steps.prep.outputs.asset_path }}
       asset_label: ${{ steps.prep.outputs.asset_label }}
-      notes_url: ${{ steps.prep.outputs.notes_url }}
-      setup_url: ${{ steps.prep.outputs.setup_url }}
+      notes_header: ${{ steps.prep.outputs.notes_header }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Ensure we have all tags for verification
+          fetch-depth: 0 # Required to resolve the target SHA for historical tags
 
       - name: Verify and Prepare
         id: prep
@@ -35,7 +33,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           CP_TAG: CocoaPods-${{ inputs.version }}
           
-          # --- Single Source of Truth for Workflow Variables ---
+          # Single source of truth for workflow variables
           SDK_NAME: "Firebase Apple"
           ASSET_PATH: "./artifact.txt" # Mock path
           ASSET_LABEL: "Firebase.zip"
@@ -44,41 +42,41 @@ jobs:
         run: |
           set -e
 
-          # --- Step 1: Pre-flight Tag Check --- 
           if ! git rev-parse "$CP_TAG" >/dev/null 2>&1; then
-            echo "Error: Tag $CP_TAG not found. Ensure the tag is pushed before releasing."
+            echo "Error: Tag '$CP_TAG' not found. Ensure the tag is pushed before releasing."
             exit 1
           fi
 
-          # --- Step 2: Check for existing release ---
           RELEASE_INFO=$(gh release view "$VERSION" --json isDraft,url 2>/dev/null || true)
           if [ -n "$RELEASE_INFO" ]; then
             IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
             EXISTING_URL=$(echo "$RELEASE_INFO" | jq -r '.url')
 
             if [ "$IS_DRAFT" = "false" ]; then
-              echo "Error: Version '$VERSION' is already published."
-              echo "Releases cannot be overwritten. Please enter an unreleased version number."
-              echo "View the existing release here: $EXISTING_URL"
+              echo "Error: Version '$VERSION' is already published at $EXISTING_URL"
               exit 1
             else
-              echo "Error: Found an existing draft for '$VERSION'."
-              echo "Since this workflow publishes directly, please manually delete the draft here: $EXISTING_URL"
+              echo "Error: Found an existing draft for '$VERSION' at $EXISTING_URL"
+              echo "Please manually delete the draft before proceeding."
               exit 1
             fi
           fi
 
-          # --- Step 3: Resolve the Tag to a SHA ---
           TARGET_SHA=$(git rev-parse "$CP_TAG")
-          echo "Target SHA for release: $TARGET_SHA"
           
-          # --- Step 4: Export Outputs for the downstream steps and jobs ---
           echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
           echo "sdk_name=$SDK_NAME" >> $GITHUB_OUTPUT
           echo "asset_path=$ASSET_PATH" >> $GITHUB_OUTPUT
           echo "asset_label=$ASSET_LABEL" >> $GITHUB_OUTPUT
-          echo "notes_url=$NOTES_URL" >> $GITHUB_OUTPUT
-          echo "setup_url=$SETUP_URL" >> $GITHUB_OUTPUT
+
+          # Export the release notes block as a multi-line string output
+          {
+            echo 'notes_header<<EOF'
+            echo "The $SDK_NAME SDK ($VERSION) is now available. For more details, see the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)"
+            echo ""
+            echo "To install this SDK, see [Add Firebase to your project.]($SETUP_URL)"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: Post Summary
         env:
@@ -88,34 +86,32 @@ jobs:
           SDK_NAME: ${{ steps.prep.outputs.sdk_name }}
           ASSET_PATH: ${{ steps.prep.outputs.asset_path }}
           ASSET_LABEL: ${{ steps.prep.outputs.asset_label }}
-          NOTES_URL: ${{ steps.prep.outputs.notes_url }}
-          SETUP_URL: ${{ steps.prep.outputs.setup_url }}
+          NOTES_HEADER: ${{ steps.prep.outputs.notes_header }}
         run: |
           echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
-          echo "Please review the details below before approving the 'Publish' job." >> $GITHUB_STEP_SUMMARY
+          echo "Please review the details below before approving the publish job." >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           
-          # Mimics the "Choose a tag" and "Target" dropdowns
           echo "**Tag:** \`$VERSION\` &emsp;&emsp; **Target:** [\`$CP_TAG\`](https://github.com/${{ github.repository }}/tree/$CP_TAG) / [\`${TARGET_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/$TARGET_SHA)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Mimics the "Release title" text box
           echo "#### Release title" >> $GITHUB_STEP_SUMMARY
-          echo "\`$SDK_NAME $VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "**$SDK_NAME $VERSION**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Mimics the "Describe this release" markdown box
           echo "#### Release notes" >> $GITHUB_STEP_SUMMARY
-          echo "> The $SDK_NAME SDK ($VERSION) is now available. For more details, see the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)" >> $GITHUB_STEP_SUMMARY
-          echo "> " >> $GITHUB_STEP_SUMMARY
-          echo "> To install this SDK, see [Add Firebase to your project.]($SETUP_URL)" >> $GITHUB_STEP_SUMMARY
+          
+          # Prepend a blockquote marker to the multi-line notes string for visual preview
+          echo "$NOTES_HEADER" | sed 's/^/> /' >> $GITHUB_STEP_SUMMARY
           echo "> " >> $GITHUB_STEP_SUMMARY
           echo "> *< GitHub will automatically append the changelog, merged pull requests, and contributor list here >*" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Mimics the "Attached binaries" section
           echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "* 📦 **$ASSET_LABEL** *(Source: \`$ASSET_PATH\`)*" >> $GITHUB_STEP_SUMMARY
+
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Once published, view release at:** [https://github.com/${{ github.repository }}/releases/tag/$VERSION](https://github.com/${{ github.repository }}/releases/tag/$VERSION)" >> $GITHUB_STEP_SUMMARY
 
   publish_release:
     name: Publish Release
@@ -131,35 +127,22 @@ jobs:
 
       - name: Create and Publish Release
         env:
-          # --- Secrets & Core Inputs ---
           GH_TOKEN: ${{ secrets.ENV_SECRET }} 
           VERSION: ${{ inputs.version }}
-          
-          # --- Consuming the Outputs from prepare_release ---
           TARGET_SHA: ${{ needs.prepare_release.outputs.target_sha }}
           SDK_NAME: ${{ needs.prepare_release.outputs.sdk_name }}
           ASSET_PATH: ${{ needs.prepare_release.outputs.asset_path }}
           ASSET_LABEL: ${{ needs.prepare_release.outputs.asset_label }}
-          NOTES_URL: ${{ needs.prepare_release.outputs.notes_url }}
-          SETUP_URL: ${{ needs.prepare_release.outputs.setup_url }}
-          
+          NOTES_HEADER: ${{ needs.prepare_release.outputs.notes_header }}
         run: |
           set -e
 
-          # --- 1. Construct Command Arguments ---
           RELEASE_TITLE="$SDK_NAME $VERSION"
           ASSET_ARG="$ASSET_PATH#$ASSET_LABEL"
           NOTES_FILE="header.md"
 
-          # --- 2. Generate Release Notes Header --- 
-          cat <<EOF > "$NOTES_FILE"
-          The $SDK_NAME SDK ($VERSION) is now available. For more details, see 
-          the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)
+          echo "$NOTES_HEADER" > "$NOTES_FILE"
 
-          To install this SDK, see [Add Firebase to your project.]($SETUP_URL)
-          EOF
-
-          # --- 3. Create & Publish Immutable Release ---
           gh release create "$VERSION" "$ASSET_ARG" \
             --target "$TARGET_SHA" \
             --title "$RELEASE_TITLE" \
