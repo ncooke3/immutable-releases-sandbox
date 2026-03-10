@@ -166,5 +166,6 @@ jobs:
             --target "$TARGET_SHA" \
             --title "$RELEASE_TITLE" \
             --notes-file "$NOTES_FILE" \
-            --generate-notes \
             --latest
+
+        # --generate-notes \
