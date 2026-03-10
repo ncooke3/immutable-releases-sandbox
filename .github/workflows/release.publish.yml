@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to create/edit releases
-      pull-requests: read
     outputs:
       target_sha: ${{ steps.create_draft.outputs.target_sha }}
       release_url: ${{ steps.create_draft.outputs.release_url }}
