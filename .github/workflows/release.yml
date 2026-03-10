@@ -35,6 +35,11 @@ jobs:
           ASSET_LABEL: "Firebase.zip"
         run: |
           set -e
+
+          # --- Step 0: Resolve the Tag to a SHA ---
+          # This ensures the API gets a direct pointer it can't misunderstand
+          TARGET_SHA=$(git rev-parse "$CP_TAG")
+          echo "Target SHA for release: $TARGET_SHA"
           
           # --- Step 0: Pre-flight Tag Check --- 
           if ! git rev-parse "$CP_TAG" >/dev/null 2>&1; then
@@ -54,7 +59,7 @@ jobs:
           # We use --draft so the team can do a final check before the "Freeze"
           gh release create "$VERSION" "$ZIP_PATH#$ASSET_LABEL" \
             --draft \
-            --target "$CP_TAG" \
+            --target "$TARGET_SHA" \
             --title "Firebase Apple $VERSION" \
             --notes-file header.md \
             --generate-notes \
