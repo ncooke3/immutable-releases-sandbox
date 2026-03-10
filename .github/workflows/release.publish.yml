@@ -113,7 +113,7 @@ jobs:
           
           # 3. Release Title
           echo "#### Release title" >> $GITHUB_STEP_SUMMARY
-          echo "**$SDK_NAME $VERSION**" >> $GITHUB_STEP_SUMMARY
+          echo "**\`$SDK_NAME $VERSION\`**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 4. Release Notes (Using blockquotes to mimic the text area)
@@ -124,7 +124,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # 5. Binaries
-          echo "#### Attach binaries by dropping them here or selecting them." >> $GITHUB_STEP_SUMMARY
+          echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "* 📦 **$ASSET_LABEL** *(Source: \`$ASSET_PATH\`)*" >> $GITHUB_STEP_SUMMARY
 
           echo "---" >> $GITHUB_STEP_SUMMARY
