@@ -27,7 +27,7 @@ jobs:
       - name: Create draft
         id: create_draft
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ENV_SECRET }}
           VERSION: ${{ inputs.version }}
           CP_TAG: CocoaPods-${{ inputs.version }}
           ZIP_PATH: "./artifact.txt" # Mock path; in a real flow, this would come from a previous build artifact
@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Create tag and publish release.
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ENV_SECRET }}
           VERSION: ${{ inputs.version }}
         run: gh release edit "$VERSION" --draft=false --repo ${{ github.repository }}
           
