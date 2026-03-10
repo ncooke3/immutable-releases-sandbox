@@ -109,10 +109,8 @@ jobs:
           echo "> The $SDK_NAME SDK ($VERSION) is now available. For more details, see the [$SDK_NAME SDK release notes.]($NOTES_URL#$VERSION)" >> $GITHUB_STEP_SUMMARY
           echo "> " >> $GITHUB_STEP_SUMMARY
           echo "> To install this SDK, see [Add Firebase to your project.]($SETUP_URL)" >> $GITHUB_STEP_SUMMARY
-          
-          # Enforces a hard visual newline before the note
-          echo "<br>" >> $GITHUB_STEP_SUMMARY
-          echo "*( 💡 **Note:** GitHub will automatically append the changelog, merged pull requests, and contributor list below this header when the release is published. )*" >> $GITHUB_STEP_SUMMARY
+          echo "> " >> $GITHUB_STEP_SUMMARY
+          echo "> *< GitHub will automatically append the changelog, merged pull requests, and contributor list here >*" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Mimics the "Attached binaries" section
