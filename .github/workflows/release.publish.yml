@@ -46,7 +46,7 @@ jobs:
           if [ -n "$RELEASE_INFO" ]; then
             IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
             EXISTING_URL=$(echo "$RELEASE_INFO" | jq -r '.url')
-            
+
             if [ "$IS_DRAFT" = "false" ]; then
               echo "Error: Version '$VERSION' is already published."
               echo "Releases cannot be overwritten. Please enter an unreleased version number."
