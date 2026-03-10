@@ -166,5 +166,3 @@ jobs:
             --notes-file "$NOTES_FILE" \
             --generate-notes \
             --latest
-
-        
