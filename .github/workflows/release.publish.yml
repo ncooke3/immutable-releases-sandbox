@@ -101,24 +101,30 @@ jobs:
         run: |
           echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
           echo "Please review the details below before approving the publish job." >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
           
+          # 1. The Info Box (Mimics the UI's blue callout)
+          echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
+          echo "> You will not be able to edit the tag or assets after publishing because immutable releases are enabled." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # 2. Tag and Target (Mimics the side-by-side dropdowns)
           echo "**Tag:** \`$VERSION\` &emsp;&emsp; **Target:** [\`$CP_TAG\`](https://github.com/${{ github.repository }}/tree/$CP_TAG) / [\`${TARGET_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/$TARGET_SHA)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # 3. Release Title
           echo "#### Release title" >> $GITHUB_STEP_SUMMARY
           echo "**$SDK_NAME $VERSION**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # 4. Release Notes (Using blockquotes to mimic the text area)
           echo "#### Release notes" >> $GITHUB_STEP_SUMMARY
-          
-          # Prepend a blockquote marker to the multi-line notes string for visual preview
           echo "$NOTES_HEADER" | sed 's/^/> /' >> $GITHUB_STEP_SUMMARY
           echo "> " >> $GITHUB_STEP_SUMMARY
           echo "> *< GitHub will automatically append the changelog, merged pull requests, and contributor list here >*" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "#### Artifacts" >> $GITHUB_STEP_SUMMARY
+          # 5. Binaries
+          echo "#### Attach binaries by dropping them here or selecting them." >> $GITHUB_STEP_SUMMARY
           echo "* 📦 **$ASSET_LABEL** *(Source: \`$ASSET_PATH\`)*" >> $GITHUB_STEP_SUMMARY
 
           echo "---" >> $GITHUB_STEP_SUMMARY
