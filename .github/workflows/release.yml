@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     # This maps to a "protected" environment in GitHub Settings > Environments
     # Use this to require manual approval from the release team.
-    # environment: 'production-release'
+    environment: 'production'
     
     permissions:
       contents: write # Required to create/edit releases
