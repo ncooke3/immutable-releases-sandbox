@@ -1,0 +1,68 @@
+name: "Publish Immutable Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The SDK version to release (e.g., 12.11.0)'
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    name: Create and Freeze Release
+    runs-on: ubuntu-latest
+    # This maps to a "protected" environment in GitHub Settings > Environments
+    # Use this to require manual approval from the release team.
+    # environment: 'production-release'
+    
+    permissions:
+      contents: write # Required to create/edit releases
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensure we have all tags for verification
+
+      - name: Run Release Script
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          CP_TAG: CocoaPods-${{ inputs.version }}
+          # Mock path; in a real flow, this would come from a previous build artifact
+          ZIP_PATH: "./artifact_0.0.1.txt"
+          ASSET_LABEL: "Firebase.zip"
+        run: |
+          set -e
+          
+          # --- Step 0: Pre-flight Tag Check --- 
+          if ! git rev-parse "$CP_TAG" >/dev/null 2>&1; then
+            echo "Error: Tag $CP_TAG not found. Ensure the tag is pushed before releasing."
+            exit 1
+          fi
+
+          # --- Step 1: Generate Release Notes Header --- 
+          cat <<EOF > header.md
+          The Firebase Apple SDK ($VERSION) is now available. For more details, see 
+          the [Firebase Apple SDK release notes.](https://firebase.google.com/support/release-notes/ios#$VERSION)
+          
+          To install this SDK, see [Add Firebase to your project.](https://firebase.google.com/docs/ios/setup)
+          EOF
+
+          # --- Step 2: Create the Immutable Draft --- [cite: 1]
+          # We use --draft so the team can do a final check before the "Freeze"
+          gh release create "$VERSION" "$ZIP_PATH#$ASSET_LABEL" \
+            --draft \
+            --target "$CP_TAG" \
+            --title "Firebase Apple $VERSION" \
+            --notes-file header.md \
+            --generate-notes \
+            --latest
+
+          # add --fail-on-no-commits \
+
+          # --- Step 3: The Freeze (Promotion) --- [cite: 1]
+          # After the draft is created, this publishes it, triggering the immutable lock.
+          echo "Promoting draft to published. This release is now immutable."
+          # gh release edit "$VERSION" --draft=false
