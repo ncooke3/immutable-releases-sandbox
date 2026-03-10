@@ -74,9 +74,15 @@ jobs:
     
     steps:
       - name: Post Summary
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           echo "### 🚀 Release Ready for Review" >> $GITHUB_STEP_SUMMARY
           echo "Please verify the draft before approving the 'Publish' job below." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "* **Proposed Version:** \`${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Target Tag:** [\`CocoaPods-${{ inputs.version }}\`](https://github.com/${{ github.repository }}/tree/CocoaPods-${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "* **Target Commit:** [\`${{ needs.draft_release.outputs.target_sha }}\`](https://github.com/${{ github.repository }}/commit/${{ needs.draft_release.outputs.target_sha }})" >> $GITHUB_STEP_SUMMARY
           echo "* **Draft Release URL:** ${{ needs.draft_release.outputs.release_url }}" >> $GITHUB_STEP_SUMMARY
 
   publish_release:
