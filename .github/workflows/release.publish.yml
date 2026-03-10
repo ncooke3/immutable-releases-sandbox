@@ -29,8 +29,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           CP_TAG: CocoaPods-${{ inputs.version }}
-          # Mock path; in a real flow, this would come from a previous build artifact
-          ZIP_PATH: "./artifact_0.0.1.txt"
+          ZIP_PATH: "./artifact_0.0.1.txt" # Mock path; in a real flow, this would come from a previous build artifact
           ASSET_LABEL: "Firebase.zip"
         run: |
           set -e
